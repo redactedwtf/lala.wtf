@@ -1,0 +1,1614 @@
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/coldfundss/lala.wtf/refs/heads/main/loader.lua"))()
+
+local TS         = game:GetService("TweenService")
+local UIS        = game:GetService("UserInputService")
+local Players    = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting   = game:GetService("Lighting")
+local CoreGui    = game:GetService("CoreGui")
+local WS         = game:GetService("Workspace")
+local Debris     = game:GetService("Debris")
+
+local LP = Players.LocalPlayer
+
+local IsMobile  = UIS.TouchEnabled  and not UIS.KeyboardEnabled
+local IsGamepad = UIS.GamepadEnabled and not UIS.TouchEnabled and not UIS.KeyboardEnabled
+
+local UIFont   = Library.UIFont
+local FontSize = Library.FontSize
+
+local Win  = Library:Window({ Name = "lala.wtf" })
+local Main = Library.Holder
+local SGui = Main.Parent
+
+local function GetVP() return WS.CurrentCamera.ViewportSize end
+
+Main.Size    = UDim2.new(0, 520, 0, 325)
+Main.Visible = false
+if IsMobile then
+    Main.Size     = UDim2.new(0, math.min(520, GetVP().X - 8), 0, 325)
+    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+end
+
+local UILocked      = false
+local MenuOpen      = false
+local CurrentAccent = Library.Accent
+
+local BlurEffect = Instance.new("BlurEffect", Lighting)
+BlurEffect.Size    = 0
+BlurEffect.Enabled = false
+
+local BlurGui = Instance.new("ScreenGui", CoreGui)
+BlurGui.Name             = "lala_blur"
+BlurGui.DisplayOrder     = 1
+BlurGui.ResetOnSpawn     = false
+BlurGui.IgnoreGuiInset   = true
+BlurGui.Enabled          = false
+
+local DimOverlay = Instance.new("Frame", BlurGui)
+DimOverlay.Name                   = "Dim"
+DimOverlay.Size                   = UDim2.new(1, 0, 1, 0)
+DimOverlay.BackgroundColor3       = Color3.new(0, 0, 0)
+DimOverlay.BackgroundTransparency = 1
+DimOverlay.BorderSizePixel        = 0
+DimOverlay.ZIndex                 = 1
+
+local SnowCanvas = Instance.new("Frame", BlurGui)
+SnowCanvas.Name                   = "Snow"
+SnowCanvas.Size                   = UDim2.new(1, 0, 1, 0)
+SnowCanvas.BackgroundTransparency = 1
+SnowCanvas.BorderSizePixel        = 0
+SnowCanvas.ZIndex                 = 2
+SnowCanvas.ClipsDescendants       = true
+
+local snowEnabled = true
+local flakes      = {}
+local FLAKE_COUNT = 120
+
+local function MakeFlake()
+    local vp = GetVP()
+    local sz = math.random(1, 6)
+    local f  = Instance.new("Frame", SnowCanvas)
+    f.Size                   = UDim2.new(0, sz, 0, sz)
+    f.Position               = UDim2.new(0, math.random(-50, vp.X + 50), 0, math.random(-vp.Y, vp.Y))
+    f.BackgroundColor3       = Color3.fromRGB(255, 255, 255)
+    f.BackgroundTransparency = math.random(1, 8) / 10
+    f.BorderSizePixel        = 0
+    f.ZIndex                 = 2
+    if sz >= 4 then
+        local glow = Instance.new("ImageLabel", f)
+        glow.Size                   = UDim2.new(1, 6, 1, 6)
+        glow.Position               = UDim2.new(0, -3, 0, -3)
+        glow.BackgroundTransparency = 1
+        glow.Image                  = "rbxassetid://6815778798"
+        glow.ImageColor3            = Color3.fromRGB(200, 220, 255)
+        glow.ImageTransparency      = 0.7
+        glow.ZIndex                 = 1
+    end
+    Instance.new("UICorner", f).CornerRadius = UDim.new(1, 0)
+    return {
+        inst      = f,
+        speed     = math.random(40, 120) / 100,
+        drift     = (math.random() - 0.5) * 1.2,
+        amp       = math.random(2, 8),
+        phase     = math.random() * math.pi * 2,
+        windTimer = math.random() * 5,
+        opacity   = math.random(3, 10) / 10,
+        size      = sz,
+    }
+end
+
+for i = 1, FLAKE_COUNT do
+    table.insert(flakes, MakeFlake())
+end
+
+local windStrength = 0
+local windTarget   = 0
+
+RunService.RenderStepped:Connect(function(dt)
+    if not BlurGui.Enabled or not snowEnabled then return end
+    local vp = GetVP()
+    local t  = tick()
+    if math.random() < 0.01 then windTarget = (math.random() - 0.5) * 3 end
+    windStrength = windStrength + (windTarget - windStrength) * dt * 0.5
+    for _, sf in ipairs(flakes) do
+        local pos = sf.inst.Position
+        sf.windTimer = sf.windTimer + dt
+        local turbulence = math.sin(sf.windTimer * 2.7) * 0.3
+        local wind = (windStrength + sf.drift + turbulence) * dt * 60
+        local ax = pos.X.Offset + wind * 0.8
+        local ay = pos.Y.Offset + sf.speed * 60 * dt
+        ax = ax + math.sin(t * 0.8 + sf.phase) * sf.amp * dt * 0.5
+        if ay > vp.Y + 20 then
+            ay = -math.random(20, 60)
+            ax = math.random(-50, vp.X + 50)
+            sf.opacity = math.random(3, 10) / 10
+            sf.inst.BackgroundTransparency = 1 - sf.opacity
+        end
+        if ax > vp.X + 60 then ax = -40 end
+        if ax < -60 then ax = vp.X + 40 end
+        local fadeStart = vp.Y * 0.7
+        if ay > fadeStart then
+            local fp = (ay - fadeStart) / (vp.Y * 0.3)
+            sf.inst.BackgroundTransparency = math.clamp(1 - sf.opacity * (1 - fp), 0, 1)
+        elseif ay < 0 then
+            sf.inst.BackgroundTransparency = math.clamp(1 - sf.opacity * (1 - math.abs(ay) / 40), 0, 1)
+        else
+            sf.inst.BackgroundTransparency = 1 - sf.opacity
+        end
+        sf.inst.Position = UDim2.new(0, ax, 0, ay)
+        if sf.size >= 3 then
+            sf.inst.Rotation = math.sin(t * 1.5 + sf.phase) * 15
+        end
+    end
+end)
+
+local function TweenTo(obj, props, t, style, dir)
+    style = style or Enum.EasingStyle.Quad
+    dir   = dir   or Enum.EasingDirection.Out
+    return TS:Create(obj, TweenInfo.new(t or 0.3, style, dir), props)
+end
+
+local blurActive = false
+
+local function SetBlur(on)
+    blurActive = on
+    if on then
+        BlurGui.Enabled    = true
+        BlurEffect.Enabled = true
+        local intensity = Library.Flags and Library.Flags["blur_intensity"] or "Medium"
+        local sizes = { None=0, Low=8, Medium=18, High=32, Ultra=52 }
+        TweenTo(BlurEffect, { Size = sizes[intensity] or 18 }, 0.35):Play()
+        TweenTo(DimOverlay, { BackgroundTransparency = 0.5 }, 0.35):Play()
+    else
+        TweenTo(BlurEffect, { Size = 0 }, 0.3):Play()
+        TweenTo(DimOverlay, { BackgroundTransparency = 1 }, 0.3):Play()
+        task.delay(0.35, function()
+            if not blurActive then
+                BlurEffect.Enabled = false
+                BlurGui.Enabled    = false
+            end
+        end)
+    end
+end
+
+local _origSetOpen = Library.SetOpen
+function Library:SetOpen(bool)
+    _origSetOpen(self, bool)
+end
+
+-- ─── Themes ───────────────────────────────────────────────────────────────────
+
+local Themes = {
+    { name = "Void",        color = Color3.fromRGB(90,  90,  90)  },
+    { name = "Slate",       color = Color3.fromRGB(120, 145, 175) },
+    { name = "Snow White",  color = Color3.fromRGB(220, 220, 220) },
+    { name = "lala Blue",   color = Color3.fromRGB(76,  162, 252) },
+    { name = "Ocean",       color = Color3.fromRGB(30,  180, 220) },
+    { name = "Ice",         color = Color3.fromRGB(180, 230, 255) },
+    { name = "Cyan",        color = Color3.fromRGB(50,  230, 230) },
+    { name = "Mint",        color = Color3.fromRGB(50,  220, 140) },
+    { name = "Lime",        color = Color3.fromRGB(160, 255, 50)  },
+    { name = "Crimson",     color = Color3.fromRGB(220, 50,  50)  },
+    { name = "Rose",        color = Color3.fromRGB(255, 100, 160) },
+    { name = "Cherry",      color = Color3.fromRGB(230, 40,  100) },
+    { name = "Lavender",    color = Color3.fromRGB(160, 100, 255) },
+    { name = "Neon Purple", color = Color3.fromRGB(200, 50,  255) },
+    { name = "Peach",       color = Color3.fromRGB(255, 190, 130) },
+    { name = "Sunset",      color = Color3.fromRGB(255, 130, 60)  },
+    { name = "Gold",        color = Color3.fromRGB(255, 200, 50)  },
+}
+
+local ThemeMap   = {}
+local ThemeNames = {}
+for _, t in ipairs(Themes) do
+    ThemeMap[t.name] = t.color
+    table.insert(ThemeNames, t.name)
+end
+
+local accentBars   = {}
+local accentLabels = {}
+
+local function RegisterAccent(obj, kind)
+    if kind == "bar"   then table.insert(accentBars,   obj) end
+    if kind == "label" then table.insert(accentLabels, obj) end
+end
+
+local function ApplyAccent(col, animated)
+    CurrentAccent = col
+    Library:ChangeAccent(col)
+    local dur = animated and 0.2 or 0
+    for _, b in ipairs(accentBars)   do TweenTo(b, { BackgroundColor3 = col }, dur):Play() end
+    for _, l in ipairs(accentLabels) do TweenTo(l, { TextColor3       = col }, dur):Play() end
+    pcall(function() TweenTo(_G._lalaKeyTopBar, { BackgroundColor3 = col }, dur):Play() end)
+    pcall(function() TweenTo(_G._lalaKeyBtn,    { BackgroundColor3 = col }, dur):Play() end)
+    pcall(function() TweenTo(_G._lalaKeyTitle,  { TextColor3       = col }, dur):Play() end)
+end
+
+-- ─── Key GUI ──────────────────────────────────────────────────────────────────
+
+local KeyGui = Instance.new("ScreenGui", CoreGui)
+KeyGui.Name           = "lala_key"
+KeyGui.DisplayOrder   = 9999
+KeyGui.ResetOnSpawn   = false
+KeyGui.IgnoreGuiInset = true
+
+local KBG = Instance.new("Frame", KeyGui)
+KBG.Size                   = UDim2.new(1, 0, 1, 0)
+KBG.BackgroundColor3       = Color3.new(0, 0, 0)
+KBG.BackgroundTransparency = 1
+KBG.BorderSizePixel        = 0
+KBG.ZIndex                 = 100
+
+local KCard = Instance.new("Frame", KBG)
+KCard.Size             = UDim2.new(0, 270, 0, 195)
+KCard.AnchorPoint      = Vector2.new(0.5, 0.5)
+KCard.Position         = UDim2.new(0.5, 0, 0.6, 0)
+KCard.BackgroundColor3 = Color3.fromRGB(6, 6, 6)
+KCard.BorderSizePixel  = 0
+KCard.ZIndex           = 101
+Instance.new("UICorner", KCard).CornerRadius = UDim.new(0, 5)
+local KStroke = Instance.new("UIStroke", KCard)
+KStroke.Color     = Color3.fromRGB(25, 25, 25)
+KStroke.Thickness = 1
+
+local KInner = Instance.new("Frame", KCard)
+KInner.Size             = UDim2.new(1, -2, 1, -2)
+KInner.Position         = UDim2.new(0, 1, 0, 1)
+KInner.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+KInner.BorderSizePixel  = 0
+KInner.ZIndex           = 102
+Instance.new("UICorner", KInner).CornerRadius = UDim.new(0, 4)
+
+local KTopBar = Instance.new("Frame", KInner)
+KTopBar.Size             = UDim2.new(1, 0, 0, 1)
+KTopBar.BackgroundColor3 = CurrentAccent
+KTopBar.BorderSizePixel  = 0
+KTopBar.ZIndex           = 103
+_G._lalaKeyTopBar        = KTopBar
+
+local KLogo = Instance.new("ImageLabel", KInner)
+KLogo.Size                   = UDim2.new(0, 44, 0, 44)
+KLogo.AnchorPoint            = Vector2.new(0.5, 0)
+KLogo.Position               = UDim2.new(0.5, 0, 0, 14)
+KLogo.BackgroundTransparency = 1
+KLogo.ZIndex                 = 103
+KLogo.Image                  = "https://raw.githubusercontent.com/coldfundss/lala.wtf/main/lalawtf.png"
+KLogo.ScaleType              = Enum.ScaleType.Fit
+
+local KTitle = Instance.new("TextLabel", KInner)
+KTitle.Size                   = UDim2.new(1, 0, 0, 14)
+KTitle.Position               = UDim2.new(0, 0, 0, 64)
+KTitle.BackgroundTransparency = 1
+KTitle.Text                   = "lala.wtf"
+KTitle.TextColor3             = CurrentAccent
+KTitle.FontFace               = UIFont
+KTitle.TextSize               = 13
+KTitle.TextXAlignment         = Enum.TextXAlignment.Center
+KTitle.ZIndex                 = 103
+_G._lalaKeyTitle              = KTitle
+
+local KSub = Instance.new("TextLabel", KInner)
+KSub.Size                   = UDim2.new(1, 0, 0, 11)
+KSub.Position               = UDim2.new(0, 0, 0, 80)
+KSub.BackgroundTransparency = 1
+KSub.Text                   = "enter key to continue"
+KSub.TextColor3             = Color3.fromRGB(50, 50, 50)
+KSub.FontFace               = UIFont
+KSub.TextSize               = FontSize
+KSub.TextXAlignment         = Enum.TextXAlignment.Center
+KSub.ZIndex                 = 103
+
+local KBoxFrame = Instance.new("Frame", KInner)
+KBoxFrame.Size             = UDim2.new(1, -28, 0, 22)
+KBoxFrame.Position         = UDim2.new(0, 14, 0, 100)
+KBoxFrame.BackgroundColor3 = Color3.fromRGB(7, 7, 7)
+KBoxFrame.BorderSizePixel  = 0
+KBoxFrame.ZIndex           = 103
+Instance.new("UICorner", KBoxFrame).CornerRadius = UDim.new(0, 3)
+Instance.new("UIStroke", KBoxFrame).Color = Color3.fromRGB(25, 25, 25)
+
+local KBox = Instance.new("TextBox", KBoxFrame)
+KBox.Size                   = UDim2.new(1, -10, 1, 0)
+KBox.Position               = UDim2.new(0, 5, 0, 0)
+KBox.BackgroundTransparency = 1
+KBox.PlaceholderText        = "key..."
+KBox.PlaceholderColor3      = Color3.fromRGB(40, 40, 40)
+KBox.TextColor3             = Color3.fromRGB(195, 195, 195)
+KBox.FontFace               = UIFont
+KBox.TextSize               = FontSize
+KBox.ZIndex                 = 104
+KBox.ClearTextOnFocus       = false
+
+local KStatus = Instance.new("TextLabel", KInner)
+KStatus.Size                   = UDim2.new(1, -28, 0, 11)
+KStatus.Position               = UDim2.new(0, 14, 0, 127)
+KStatus.BackgroundTransparency = 1
+KStatus.TextColor3             = Color3.fromRGB(215, 55, 55)
+KStatus.FontFace               = UIFont
+KStatus.TextSize               = FontSize - 1
+KStatus.ZIndex                 = 103
+KStatus.Text                   = ""
+
+local KBtn = Instance.new("TextButton", KInner)
+KBtn.Size             = UDim2.new(1, -28, 0, 20)
+KBtn.Position         = UDim2.new(0, 14, 0, 146)
+KBtn.BackgroundColor3 = CurrentAccent
+KBtn.BorderSizePixel  = 0
+KBtn.Text             = "Unlock"
+KBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
+KBtn.FontFace         = UIFont
+KBtn.TextSize         = FontSize
+KBtn.ZIndex           = 103
+KBtn.AutoButtonColor  = false
+Instance.new("UICorner", KBtn).CornerRadius = UDim.new(0, 3)
+_G._lalaKeyBtn = KBtn
+
+TweenTo(KCard, { Position = UDim2.new(0.5, 0, 0.5, 0) }, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out):Play()
+TweenTo(KBG,   { BackgroundTransparency = 0.35 }, 0.4):Play()
+
+local function ShakeFrame(frame)
+    local orig    = frame.Position
+    local offsets = { 5, -8, 6, -5, 4, -3, 2, -1, 0 }
+    for _, ox in ipairs(offsets) do
+        TweenTo(frame, { Position = orig + UDim2.new(0, ox, 0, 0) }, 0.04):Play()
+        task.wait(0.045)
+    end
+    frame.Position = orig
+end
+
+local function ValidateKey()
+    KStatus.Text       = "checking..."
+    KStatus.TextColor3 = Color3.fromRGB(160, 160, 160)
+    local entered = KBox.Text:gsub("%s+", "")
+    local ok, result = pcall(function()
+        return game:HttpGet("https://raw.githubusercontent.com/coldfundss/lala.wtf/refs/heads/main/key")
+    end)
+    local validKey = ok and result:gsub("%s+", "") or "lalawtf"
+
+    if entered == validKey then
+        KStatus.Text       = "valid - loading..."
+        KStatus.TextColor3 = Color3.fromRGB(55, 215, 95)
+        TweenTo(KBtn, { BackgroundColor3 = Color3.fromRGB(40, 180, 80) }, 0.2):Play()
+        task.wait(0.8)
+        TweenTo(KCard, { Position = UDim2.new(0.5, 0, 0.4, 0) }, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In):Play()
+        TweenTo(KBG,   { BackgroundTransparency = 1 }, 0.3):Play()
+        task.wait(0.4)
+        KeyGui:Destroy()
+        _G._lalaKeyTopBar = nil
+        _G._lalaKeyBtn    = nil
+        _G._lalaKeyTitle  = nil
+        MenuOpen     = true
+        Main.Visible = true
+        _origSetOpen(Library, true)
+        SetBlur(true)
+    else
+        KStatus.Text       = "invalid key"
+        KStatus.TextColor3 = Color3.fromRGB(215, 55, 55)
+        TweenTo(KBtn, { BackgroundColor3 = Color3.fromRGB(180, 40, 40) }, 0.1):Play()
+        task.delay(0.4, function() TweenTo(KBtn, { BackgroundColor3 = CurrentAccent }, 0.2):Play() end)
+        task.spawn(function() ShakeFrame(KBoxFrame) end)
+    end
+end
+
+KBtn.MouseButton1Click:Connect(ValidateKey)
+KBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then ValidateKey() end
+end)
+KBtn.MouseEnter:Connect(function()
+    TweenTo(KBtn, { BackgroundColor3 = CurrentAccent:Lerp(Color3.new(1,1,1), 0.12) }, 0.12):Play()
+end)
+KBtn.MouseLeave:Connect(function()
+    TweenTo(KBtn, { BackgroundColor3 = CurrentAccent }, 0.12):Play()
+end)
+
+-- ─── Sidebar Pills ────────────────────────────────────────────────────────────
+
+local function MakePill(parent, yPos, label)
+    local wrap = Instance.new("Frame", parent)
+    wrap.Size             = UDim2.new(0, 64, 0, 22)
+    wrap.Position         = UDim2.new(0, 4, 0, yPos)
+    wrap.BackgroundColor3 = Color3.fromRGB(7, 7, 7)
+    wrap.BorderSizePixel  = 0
+    wrap.ZIndex           = 999
+    Instance.new("UICorner", wrap).CornerRadius = UDim.new(0, 3)
+    Instance.new("UIStroke", wrap).Color = Color3.fromRGB(22, 22, 22)
+
+    local inner = Instance.new("Frame", wrap)
+    inner.Size             = UDim2.new(1, -2, 1, -2)
+    inner.Position         = UDim2.new(0, 1, 0, 1)
+    inner.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    inner.BorderSizePixel  = 0
+    inner.ZIndex           = 999
+    Instance.new("UICorner", inner).CornerRadius = UDim.new(0, 3)
+
+    local bar = Instance.new("Frame", inner)
+    bar.Size             = UDim2.new(1, 0, 0, 1)
+    bar.BackgroundColor3 = CurrentAccent
+    bar.BorderSizePixel  = 0
+    bar.ZIndex           = 1000
+    RegisterAccent(bar, "bar")
+
+    local btn = Instance.new("TextButton", inner)
+    btn.Size                   = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text                   = label
+    btn.TextColor3             = Color3.fromRGB(65, 65, 65)
+    btn.TextSize               = FontSize
+    btn.FontFace               = UIFont
+    btn.ZIndex                 = 1001
+    btn.AutoButtonColor        = false
+
+    btn.MouseEnter:Connect(function()
+        TweenTo(btn, { TextColor3 = Color3.fromRGB(205, 205, 205) }, 0.12):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenTo(btn, { TextColor3 = Color3.fromRGB(65, 65, 65) }, 0.12):Play()
+    end)
+    btn.MouseButton1Down:Connect(function()
+        TweenTo(inner, { BackgroundColor3 = Color3.fromRGB(16, 16, 16) }, 0.08):Play()
+    end)
+    btn.MouseButton1Up:Connect(function()
+        TweenTo(inner, { BackgroundColor3 = Color3.fromRGB(10, 10, 10) }, 0.12):Play()
+    end)
+
+    return wrap, inner, bar, btn
+end
+
+local panelY = 48
+local toggleWrap, _, _, toggleBtn = MakePill(SGui, panelY,      "Toggle UI")
+local lockWrap,   _, lockBar, lockBtn = MakePill(SGui, panelY + 26, "Lock UI")
+
+toggleBtn.MouseButton1Click:Connect(function()
+    if UILocked then return end
+    MenuOpen = not MenuOpen
+    _origSetOpen(Library, MenuOpen)
+    SetBlur(MenuOpen)
+end)
+
+lockBtn.MouseButton1Click:Connect(function()
+    UILocked = not UILocked
+    lockBtn.Text = UILocked and "Unlock UI" or "Lock UI"
+    if UILocked then
+        TweenTo(lockBar, { BackgroundColor3 = Color3.fromRGB(240, 60, 60) }, 0.2):Play()
+        TweenTo(lockBtn, { TextColor3 = Color3.fromRGB(240, 60, 60) }, 0.2):Play()
+    else
+        TweenTo(lockBar, { BackgroundColor3 = CurrentAccent }, 0.2):Play()
+        TweenTo(lockBtn, { TextColor3 = Color3.fromRGB(65, 65, 65) }, 0.2):Play()
+    end
+end)
+
+-- ─── Watermark ────────────────────────────────────────────────────────────────
+
+local WMWrap = Instance.new("Frame", SGui)
+WMWrap.Size             = UDim2.new(0, 240, 0, 22)
+WMWrap.Position         = UDim2.new(1, -248, 0, 8)
+WMWrap.BackgroundColor3 = Color3.fromRGB(7, 7, 7)
+WMWrap.BorderSizePixel  = 0
+WMWrap.ZIndex           = 999
+Instance.new("UICorner", WMWrap).CornerRadius = UDim.new(0, 3)
+Instance.new("UIStroke", WMWrap).Color = Color3.fromRGB(22, 22, 22)
+
+local WMInner = Instance.new("Frame", WMWrap)
+WMInner.Size             = UDim2.new(1, -2, 1, -2)
+WMInner.Position         = UDim2.new(0, 1, 0, 1)
+WMInner.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+WMInner.BorderSizePixel  = 0
+WMInner.ZIndex           = 999
+Instance.new("UICorner", WMInner).CornerRadius = UDim.new(0, 3)
+
+local WMBar = Instance.new("Frame", WMInner)
+WMBar.Size             = UDim2.new(1, 0, 0, 1)
+WMBar.BackgroundColor3 = CurrentAccent
+WMBar.BorderSizePixel  = 0
+WMBar.ZIndex           = 1000
+RegisterAccent(WMBar, "bar")
+
+local WMText = Instance.new("TextLabel", WMInner)
+WMText.Size                   = UDim2.new(1, 0, 1, 0)
+WMText.BackgroundTransparency = 1
+WMText.Text                   = "lala.wtf | FPS: -- | discord.gg/PjCXnRfskM"
+WMText.TextColor3             = Color3.fromRGB(185, 185, 185)
+WMText.TextSize               = FontSize
+WMText.FontFace               = UIFont
+WMText.TextXAlignment         = Enum.TextXAlignment.Center
+WMText.TextYAlignment         = Enum.TextYAlignment.Center
+WMText.ZIndex                 = 1001
+WMText.TextTruncate           = Enum.TextTruncate.AtEnd
+
+task.spawn(function()
+    local last, frames = os.clock(), 0
+    while true do
+        RunService.RenderStepped:Wait()
+        frames += 1
+        local now = os.clock()
+        if now - last >= 1 then
+            WMText.Text = ("lala.wtf | FPS: %d | discord.gg/PjCXnRfskM"):format(
+                math.floor(frames / (now - last))
+            )
+            frames = 0
+            last   = now
+        end
+    end
+end)
+
+-- ─── Notifications ────────────────────────────────────────────────────────────
+
+local NOTIF_W     = 172
+local NotifHolder = Instance.new("Frame", SGui)
+NotifHolder.AnchorPoint            = Vector2.new(1, 1)
+NotifHolder.Size                   = UDim2.new(0, NOTIF_W, 1, 0)
+NotifHolder.Position               = UDim2.new(1, -8, 1, 0)
+NotifHolder.BackgroundTransparency = 1
+NotifHolder.BorderSizePixel        = 0
+NotifHolder.ZIndex                 = 3000
+
+local NotifLayout = Instance.new("UIListLayout", NotifHolder)
+NotifLayout.SortOrder        = Enum.SortOrder.LayoutOrder
+NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+NotifLayout.Padding          = UDim.new(0, 4)
+Instance.new("UIPadding", NotifHolder).PaddingBottom = UDim.new(0, 8)
+
+local _notifCount = 0
+
+local function Notify(opts)
+    if Library.Flags and Library.Flags["notifs_enabled"] == false then return end
+    opts = opts or {}
+    local title   = tostring(opts.Title   or "Notification")
+    local message = tostring(opts.Message or "")
+    local dur     = math.clamp(tonumber(opts.Duration) or 4, 1, 15)
+    _notifCount  += 1
+    local totalH  = message ~= "" and 48 or 32
+
+    local wrap = Instance.new("Frame", NotifHolder)
+    wrap.LayoutOrder      = _notifCount
+    wrap.Size             = UDim2.new(1, 0, 0, totalH)
+    wrap.BackgroundColor3 = Color3.fromRGB(7, 7, 7)
+    wrap.BorderSizePixel  = 0
+    wrap.ZIndex           = 3000
+    Instance.new("UICorner", wrap).CornerRadius = UDim.new(0, 3)
+    Instance.new("UIStroke", wrap).Color = Color3.fromRGB(20, 20, 20)
+
+    local inner = Instance.new("Frame", wrap)
+    inner.Size             = UDim2.new(1, -2, 1, -2)
+    inner.Position         = UDim2.new(0, 1, 0, 1)
+    inner.BackgroundColor3 = Color3.fromRGB(11, 11, 11)
+    inner.BorderSizePixel  = 0
+    inner.ZIndex           = 3001
+    Instance.new("UICorner", inner).CornerRadius = UDim.new(0, 3)
+
+    local stripe = Instance.new("Frame", inner)
+    stripe.Size             = UDim2.new(0, 2, 1, 0)
+    stripe.BackgroundColor3 = CurrentAccent
+    stripe.BorderSizePixel  = 0
+    stripe.ZIndex           = 3002
+
+    local tlbl = Instance.new("TextLabel", inner)
+    tlbl.Size                   = UDim2.new(1, -8, 0, 13)
+    tlbl.Position               = UDim2.new(0, 6, 0, message ~= "" and 5 or 0)
+    tlbl.BackgroundTransparency = 1
+    tlbl.Text                   = title
+    tlbl.TextColor3             = CurrentAccent
+    tlbl.TextSize               = FontSize
+    tlbl.FontFace               = UIFont
+    tlbl.TextXAlignment         = Enum.TextXAlignment.Left
+    tlbl.TextTruncate           = Enum.TextTruncate.AtEnd
+    tlbl.ZIndex                 = 3003
+
+    if message ~= "" then
+        local mlbl = Instance.new("TextLabel", inner)
+        mlbl.Size                   = UDim2.new(1, -8, 0, 11)
+        mlbl.Position               = UDim2.new(0, 6, 0, 20)
+        mlbl.BackgroundTransparency = 1
+        mlbl.Text                   = message
+        mlbl.TextColor3             = Color3.fromRGB(120, 120, 120)
+        mlbl.TextSize               = FontSize - 1
+        mlbl.FontFace               = UIFont
+        mlbl.TextXAlignment         = Enum.TextXAlignment.Left
+        mlbl.ZIndex                 = 3003
+    end
+
+    local track = Instance.new("Frame", inner)
+    track.Size             = UDim2.new(1, -2, 0, 1)
+    track.Position         = UDim2.new(0, 2, 1, -2)
+    track.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    track.BorderSizePixel  = 0
+    track.ZIndex           = 3002
+
+    local fill = Instance.new("Frame", track)
+    fill.Size             = UDim2.new(1, 0, 1, 0)
+    fill.BackgroundColor3 = CurrentAccent
+    fill.BorderSizePixel  = 0
+    fill.ZIndex           = 3003
+
+    wrap.Position = UDim2.new(1, NOTIF_W + 4, 0, 0)
+    TweenTo(wrap, { Position = UDim2.new(0, 0, 0, 0) }, 0.22, Enum.EasingStyle.Quart):Play()
+    TweenTo(fill, { Size = UDim2.new(0, 0, 1, 0) }, dur, Enum.EasingStyle.Linear):Play()
+
+    local dismissed = false
+    local function Dismiss()
+        if dismissed then return end
+        dismissed = true
+        TweenTo(wrap, { Position = UDim2.new(1, NOTIF_W + 4, 0, 0) }, 0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In):Play()
+        task.delay(0.22, function() pcall(function() wrap:Destroy() end) end)
+    end
+    task.delay(dur, Dismiss)
+
+    local cb = Instance.new("TextButton", wrap)
+    cb.Size                   = UDim2.new(1, 0, 1, 0)
+    cb.BackgroundTransparency = 1
+    cb.Text                   = ""
+    cb.ZIndex                 = 3100
+    cb.MouseButton1Click:Connect(Dismiss)
+end
+
+function Library:Notify(opts) return Notify(opts) end
+
+-- ═════════════════════════════════════════════════════════════════════════════
+--  Colorpicker overlay (works on mobile + desktop)
+-- ═════════════════════════════════════════════════════════════════════════════
+
+local PickerOverlay = Instance.new("Frame", SGui)
+PickerOverlay.Size                   = UDim2.new(1, 0, 1, 0)
+PickerOverlay.BackgroundColor3       = Color3.new(0, 0, 0)
+PickerOverlay.BackgroundTransparency = 1
+PickerOverlay.BorderSizePixel        = 0
+PickerOverlay.ZIndex                 = 5000
+PickerOverlay.Visible                = false
+
+local PickerCard = Instance.new("Frame", PickerOverlay)
+PickerCard.Size             = UDim2.new(0, 230, 0, 215)
+PickerCard.AnchorPoint      = Vector2.new(0.5, 0.5)
+PickerCard.Position         = UDim2.new(0.5, 0, 0.5, 0)
+PickerCard.BackgroundColor3 = Color3.fromRGB(11, 11, 11)
+PickerCard.BorderSizePixel  = 0
+PickerCard.ZIndex           = 5001
+Instance.new("UICorner", PickerCard).CornerRadius = UDim.new(0, 4)
+local _pcs = Instance.new("UIStroke", PickerCard)
+_pcs.Color = Color3.fromRGB(30, 30, 30)
+
+PickerOverlay.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.Touch
+    or i.UserInputType == Enum.UserInputType.MouseButton1 then
+        local ap, as = PickerCard.AbsolutePosition, PickerCard.AbsoluteSize
+        if not (i.Position.X >= ap.X and i.Position.X <= ap.X + as.X
+            and i.Position.Y >= ap.Y and i.Position.Y <= ap.Y + as.Y) then
+            PickerOverlay.Visible = false
+            TweenTo(PickerOverlay, { BackgroundTransparency = 1 }, 0.15):Play()
+            for _, ch in ipairs(PickerCard:GetChildren()) do
+                if ch:IsA("Frame") then ch.Visible = false end
+            end
+        end
+    end
+end)
+
+local _origNewPicker = Library.NewPicker
+if _origNewPicker then
+    function Library:NewPicker(default, defaultalpha, parent, count, flag, callback)
+        local types, win = _origNewPicker(self, default, defaultalpha, parent, count, flag, callback)
+        task.defer(function()
+            for _, child in ipairs(parent:GetChildren()) do
+                if child:IsA("TextButton") and child.Name == "Icon" then
+                    local window = child:FindFirstChild("Window")
+                    if window then
+                        window.Parent   = PickerCard
+                        window.Position = UDim2.new(0, 10, 0, 10)
+                        window.Size     = UDim2.new(0, 210, 0, 195)
+                        window.Visible  = false
+                        for _, d in ipairs(window:GetDescendants()) do
+                            pcall(function() d.ZIndex = 5002 end)
+                        end
+                        local sat = window:FindFirstChild("Sat")
+                        local hue = window:FindFirstChild("Hue")
+                        if sat then sat.Size = UDim2.new(0, 165, 0, 160) end
+                        if hue then
+                            hue.Position = UDim2.new(1, -22, 0, 10)
+                            hue.Size     = UDim2.new(0, 18, 0, 155)
+                        end
+                        child.MouseButton1Click:Connect(function()
+                            if window.Visible then
+                                window.Visible        = false
+                                PickerOverlay.Visible = false
+                                TweenTo(PickerOverlay, { BackgroundTransparency = 1 }, 0.15):Play()
+                            else
+                                for _, w in ipairs(PickerCard:GetChildren()) do
+                                    if w:IsA("Frame") then w.Visible = false end
+                                end
+                                window.Visible        = true
+                                PickerOverlay.Visible = true
+                                TweenTo(PickerOverlay, { BackgroundTransparency = 0.4 }, 0.15):Play()
+                            end
+                        end)
+                    end
+                    break
+                end
+            end
+        end)
+        return types, win
+    end
+end
+
+-- ═════════════════════════════════════════════════════════════════════════════
+--  Asset Loader — panduh16/juju
+-- ═════════════════════════════════════════════════════════════════════════════
+
+local baseUrl = "https://github.com/panduh16/juju/raw/refs/heads/main/assets/"
+
+local assetDefs = {
+    { key = "character",    file = "character.rbxm"    },
+    { key = "x_hit",        file = "x hit.rbxm"        },
+    { key = "blossom_aura", file = "blossom aura.rbxm"  },
+    { key = "pinksky",      file = "pinksky.rbxm"       },
+}
+
+local soundDefs = {
+    { key = "hit1",   file = "hit1.mp3"   },
+    { key = "hit2",   file = "hit2.mp3"   },
+    { key = "swoosh", file = "swoosh.mp3" },
+}
+
+local loadedAssets = {}
+local loadedSounds = {}
+
+print("=== lala.wtf asset loader (panduh16/juju) ===")
+
+for _, def in ipairs(assetDefs) do
+    local savepath = "lala_" .. def.key .. ".rbxm"
+    if not isfile(savepath) then
+        local ok, data = pcall(game.HttpGet, game, baseUrl .. def.file:gsub(" ", "%%20"))
+        if ok and data then writefile(savepath, data) end
+    end
+    local ok2, model = pcall(function()
+        return game:GetObjects("rbxasset://" .. savepath)[1]
+    end)
+    if ok2 and model then
+        loadedAssets[def.key] = model
+        print("✅", def.key)
+    else
+        warn("❌", def.key)
+    end
+end
+
+local SS = game:GetService("SoundService")
+for _, def in ipairs(soundDefs) do
+    local savepath = "lala_snd_" .. def.key .. ".mp3"
+    if not isfile(savepath) then
+        local ok, data = pcall(game.HttpGet, game, baseUrl .. def.file:gsub(" ", "%%20"))
+        if ok and data then writefile(savepath, data) end
+    end
+    local snd = Instance.new("Sound", SS)
+    snd.Name    = "lala_" .. def.key
+    snd.SoundId = "rbxasset://" .. savepath
+    snd.Volume  = 0.5
+    loadedSounds[def.key] = snd
+end
+
+local function PlaySound(name)
+    local s = loadedSounds[name]
+    if s then pcall(function() s:Play() end) end
+end
+
+-- ═════════════════════════════════════════════════════════════════════════════
+--  TABS
+-- ═════════════════════════════════════════════════════════════════════════════
+
+-- ─────────────────────────────────────────────────────────────────────────────
+--  Scroll wrapper helper
+--  Call AFTER all elements have been added to a section.
+--  Finds the two column frames the library created (Left / Right) and wraps
+--  each in a ScrollingFrame so content can overflow without breaking layout.
+-- ─────────────────────────────────────────────────────────────────────────────
+local function WrapSectionScroll(section)
+    task.defer(function()
+        -- The library normally creates two children named "Left" and "Right"
+        -- inside the section holder. We clip them inside scrollframes.
+        local holder = section.Holder or section.Window or section
+
+        local function WrapColumn(col)
+            if not col then return end
+            -- Measure content height
+            local contentH = 0
+            for _, ch in ipairs(col:GetChildren()) do
+                if ch:IsA("GuiObject") then
+                    contentH = contentH + ch.AbsoluteSize.Y + 3
+                end
+            end
+            contentH = math.max(contentH, col.AbsoluteSize.Y)
+
+            -- Create scroll wrapper matching the column's position/size
+            local sf = Instance.new("ScrollingFrame")
+            sf.Size                       = col.Size
+            sf.Position                   = col.Position
+            sf.BackgroundTransparency     = 1
+            sf.BorderSizePixel            = 0
+            sf.ScrollBarThickness         = 3
+            sf.ScrollBarImageColor3       = CurrentAccent
+            sf.ScrollBarImageTransparency = 0.4
+            sf.CanvasSize                 = UDim2.new(0, 0, 0, contentH + 10)
+            sf.ClipsDescendants           = true
+            sf.ZIndex                     = col.ZIndex
+            sf.Parent                     = col.Parent
+
+            -- Move all children of col into sf
+            for _, ch in ipairs(col:GetChildren()) do
+                ch.Parent = sf
+            end
+
+            -- Hide original column shell
+            col.BackgroundTransparency = 1
+            col.Visible = false
+
+            -- Auto-expand canvas when new children are added
+            sf.ChildAdded:Connect(function()
+                local h = 0
+                for _, ch in ipairs(sf:GetChildren()) do
+                    if ch:IsA("GuiObject") and not ch:IsA("UIListLayout") and not ch:IsA("UIPadding") then
+                        h = h + ch.AbsoluteSize.Y + 3
+                    end
+                end
+                sf.CanvasSize = UDim2.new(0, 0, 0, h + 10)
+            end)
+        end
+
+        WrapColumn(holder:FindFirstChild("Left"))
+        WrapColumn(holder:FindFirstChild("Right"))
+    end)
+end
+
+-- ─── TAB 1: Visuals ───────────────────────────────────────────────────────────
+
+local PgVisuals = Win:Page({ Name = "Visuals" })
+
+-- Section: Character
+local SecChar = PgVisuals:Section({
+    Name       = "Character",
+    LeftTitle  = "appearance",
+    RightTitle = "effects",
+})
+
+-- LEFT — appearance
+SecChar:Toggle({
+    Name     = "Highlight",
+    Side     = "Left",
+    Flag     = "char_highlight",
+    default  = false,
+    callback = function(s)
+        local char = LP.Character
+        if not char then return end
+        local hl = char:FindFirstChild("lala_hl")
+        if s then
+            if not hl then
+                hl = Instance.new("Highlight", char)
+                hl.Name             = "lala_hl"
+                hl.FillColor        = CurrentAccent
+                hl.OutlineColor     = Color3.new(1,1,1)
+                hl.FillTransparency = 0.5
+            end
+        else
+            if hl then hl:Destroy() end
+        end
+    end,
+})
+
+SecChar:Toggle({
+    Name     = "Chams",
+    Side     = "Left",
+    Flag     = "char_chams",
+    default  = false,
+    callback = function(s)
+        if LP.Character then
+            for _, v in ipairs(LP.Character:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.Material = s and Enum.Material.ForceField or Enum.Material.Plastic
+                end
+            end
+        end
+    end,
+})
+
+SecChar:Slider({
+    Name     = "FOV",
+    Side     = "Left",
+    Flag     = "fov",
+    min      = 30,
+    max      = 120,
+    default  = 70,
+    callback = function(v)
+        if WS.CurrentCamera then WS.CurrentCamera.FieldOfView = v end
+    end,
+})
+
+SecChar:Toggle({
+    Name     = "Trails",
+    Side     = "Left",
+    Flag     = "char_trails",
+    default  = false,
+    callback = function(s)
+        if s then
+            task.spawn(function()
+                while Library.Flags and Library.Flags["char_trails"] do
+                    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                        local tp = Instance.new("Part", WS)
+                        tp.Size         = Vector3.new(0.5, 0.5, 0.5)
+                        tp.CFrame       = LP.Character.HumanoidRootPart.CFrame
+                        tp.Anchored     = true
+                        tp.CanCollide   = false
+                        tp.Material     = Enum.Material.Neon
+                        local tc = Library.Flags["trail_color"]
+                        tp.Color        = (type(tc) == "userdata") and tc or CurrentAccent
+                        tp.Transparency = 0.5
+                        Debris:AddItem(tp, 1)
+                        TweenTo(tp, { Transparency = 1 }, 1):Play()
+                    end
+                    task.wait(0.05)
+                end
+            end)
+        end
+    end,
+})
+
+SecChar:Colorpicker({
+    Name     = "Trail Color",
+    Side     = "Left",
+    Flag     = "trail_color",
+    default  = CurrentAccent,
+    callback = function(v) end,
+})
+
+SecChar:Button({
+    Name     = "Respawn",
+    Side     = "Left",
+    callback = function()
+        if LP.Character and LP.Character:FindFirstChild("Humanoid") then
+            LP.Character.Humanoid.Health = 0
+        end
+    end,
+})
+
+-- RIGHT — effects
+SecChar:Toggle({
+    Name     = "Blossom Aura",
+    Side     = "Right",
+    Flag     = "blossom_aura",
+    default  = false,
+    callback = function(s)
+        if not loadedAssets.blossom_aura then
+            Notify({ Title = "Assets", Message = "blossom aura not loaded", Duration = 2 })
+            return
+        end
+        if s then
+            if LP.Character then
+                local a = loadedAssets.blossom_aura:Clone()
+                a.Name   = "_lala_blossom"
+                a.Parent = LP.Character
+            end
+        else
+            if LP.Character then
+                local a = LP.Character:FindFirstChild("_lala_blossom")
+                if a then a:Destroy() end
+            end
+        end
+    end,
+})
+
+SecChar:Toggle({
+    Name     = "Pink Sky",
+    Side     = "Right",
+    Flag     = "pinksky",
+    default  = false,
+    callback = function(s)
+        local existing = WS:FindFirstChild("_lala_pinksky")
+        if s then
+            if loadedAssets.pinksky and not existing then
+                local ps = loadedAssets.pinksky:Clone()
+                ps.Name   = "_lala_pinksky"
+                ps.Parent = WS
+            end
+        else
+            if existing then existing:Destroy() end
+        end
+    end,
+})
+
+SecChar:Toggle({
+    Name     = "X Hit Effect",
+    Side     = "Right",
+    Flag     = "xhit_effect",
+    default  = false,
+    callback = function(s)
+        if not loadedAssets.x_hit then
+            Notify({ Title = "Assets", Message = "x hit not loaded", Duration = 2 })
+            return
+        end
+        if s then
+            task.spawn(function()
+                while Library.Flags and Library.Flags["xhit_effect"] do
+                    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                        local xh = loadedAssets.x_hit:Clone()
+                        xh.Parent = WS
+                        pcall(function() xh:PivotTo(LP.Character.HumanoidRootPart.CFrame) end)
+                        Debris:AddItem(xh, 0.5)
+                    end
+                    task.wait(0.2)
+                end
+            end)
+        end
+    end,
+})
+
+SecChar:Toggle({
+    Name     = "Custom Character",
+    Side     = "Right",
+    Flag     = "custom_char",
+    default  = false,
+    callback = function(s)
+        if not loadedAssets.character then
+            Notify({ Title = "Assets", Message = "character not loaded", Duration = 2 })
+            return
+        end
+        if s then
+            local c = loadedAssets.character:Clone()
+            c.Name   = "_lala_customchar"
+            c.Parent = WS
+            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                pcall(function() c:MoveTo(LP.Character.HumanoidRootPart.Position) end)
+            end
+        else
+            local e = WS:FindFirstChild("_lala_customchar")
+            if e then e:Destroy() end
+        end
+    end,
+})
+
+WrapSectionScroll(SecChar)
+
+-- Section: Sounds
+local SecSounds = PgVisuals:Section({
+    Name       = "Sounds",
+    LeftTitle  = "hit sounds",
+    RightTitle = "options",
+})
+
+SecSounds:Toggle({
+    Name     = "Hit Sound 1",
+    Side     = "Left",
+    Flag     = "hit1_on",
+    default  = false,
+    callback = function(s)
+        if s then
+            task.spawn(function()
+                local connections = {}
+                while Library.Flags and Library.Flags["hit1_on"] do
+                    for _, plr in ipairs(Players:GetPlayers()) do
+                        if plr ~= LP and plr.Character then
+                            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                            if hum and not hum:FindFirstChild("_lala_h1") then
+                                local tag = Instance.new("BoolValue", hum)
+                                tag.Name = "_lala_h1"
+                                hum:GetPropertyChangedSignal("Health"):Connect(function()
+                                    if Library.Flags["hit1_on"] then PlaySound("hit1") end
+                                end)
+                            end
+                        end
+                    end
+                    task.wait(1)
+                end
+                -- cleanup tags
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr.Character then
+                        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            local tag = hum:FindFirstChild("_lala_h1")
+                            if tag then tag:Destroy() end
+                        end
+                    end
+                end
+            end)
+        end
+    end,
+})
+
+SecSounds:Toggle({
+    Name     = "Hit Sound 2",
+    Side     = "Left",
+    Flag     = "hit2_on",
+    default  = false,
+    callback = function(s)
+        if s then
+            task.spawn(function()
+                while Library.Flags and Library.Flags["hit2_on"] do
+                    for _, plr in ipairs(Players:GetPlayers()) do
+                        if plr ~= LP and plr.Character then
+                            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                            if hum and not hum:FindFirstChild("_lala_h2") then
+                                local tag = Instance.new("BoolValue", hum)
+                                tag.Name = "_lala_h2"
+                                hum:GetPropertyChangedSignal("Health"):Connect(function()
+                                    if Library.Flags["hit2_on"] then PlaySound("hit2") end
+                                end)
+                            end
+                        end
+                    end
+                    task.wait(1)
+                end
+            end)
+        end
+    end,
+})
+
+SecSounds:Toggle({
+    Name     = "Swoosh on Jump",
+    Side     = "Left",
+    Flag     = "swoosh_on",
+    default  = false,
+    callback = function(s)
+        if s then
+            task.spawn(function()
+                local wasJumping = false
+                while Library.Flags and Library.Flags["swoosh_on"] do
+                    if LP.Character then
+                        local hum = LP.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            local j = hum.Jump
+                            if j and not wasJumping then PlaySound("swoosh") end
+                            wasJumping = j
+                        end
+                    end
+                    task.wait(0.05)
+                end
+            end)
+        end
+    end,
+})
+
+SecSounds:Slider({
+    Name     = "Volume",
+    Side     = "Right",
+    Flag     = "snd_volume",
+    min      = 0,
+    max      = 100,
+    default  = 50,
+    suffix   = "%",
+    callback = function(v)
+        for _, snd in pairs(loadedSounds) do snd.Volume = v / 100 end
+    end,
+})
+
+SecSounds:Button({
+    Name     = "Test Hit 1",
+    Side     = "Right",
+    callback = function() PlaySound("hit1") end,
+})
+
+SecSounds:Button({
+    Name     = "Test Hit 2",
+    Side     = "Right",
+    callback = function() PlaySound("hit2") end,
+})
+
+SecSounds:Button({
+    Name     = "Test Swoosh",
+    Side     = "Right",
+    callback = function() PlaySound("swoosh") end,
+})
+
+WrapSectionScroll(SecSounds)
+
+-- ─── TAB 2: Settings ──────────────────────────────────────────────────────────
+
+local PgSettings = Win:Page({ Name = "Settings" })
+
+local SecMenu = PgSettings:Section({
+    Name       = "Menu",
+    LeftTitle  = "appearance",
+    RightTitle = "customization",
+})
+
+SecMenu:List({
+    Name     = "Theme",
+    Side     = "Left",
+    Flag     = "theme",
+    options  = ThemeNames,
+    default  = "Void",
+    callback = function(v)
+        if v and ThemeMap[v] then ApplyAccent(ThemeMap[v], true) end
+    end,
+})
+
+SecMenu:Colorpicker({
+    Name     = "Custom Accent",
+    Side     = "Left",
+    Flag     = "accent_color",
+    default  = ThemeMap["Void"],
+    callback = function(v) ApplyAccent(v, true) end,
+})
+
+SecMenu:List({
+    Name     = "Menu Scale",
+    Side     = "Left",
+    Flag     = "menu_scale",
+    options  = { "Small", "Normal", "Large" },
+    default  = "Small",
+    callback = function(v)
+        local sizes = { Small={520,325}, Normal={600,390}, Large={700,460} }
+        local s = sizes[v]
+        if s then TweenTo(Main, { Size = UDim2.new(0,s[1],0,s[2]) }, 0.3, Enum.EasingStyle.Back):Play() end
+    end,
+})
+
+SecMenu:List({
+    Name     = "Blur Intensity",
+    Side     = "Left",
+    Flag     = "blur_intensity",
+    options  = { "None","Low","Medium","High","Ultra" },
+    default  = "Medium",
+    callback = function(v)
+        local sizes = { None=0, Low=8, Medium=18, High=32, Ultra=52 }
+        if BlurEffect.Enabled then TweenTo(BlurEffect, { Size = sizes[v] or 18 }, 0.3):Play() end
+    end,
+})
+
+SecMenu:List({
+    Name     = "Font",
+    Side     = "Left",
+    Flag     = "menu_font",
+    options  = { "Gotham","Source Sans","Arial","Fredoka One","Ubuntu" },
+    default  = "Gotham",
+    callback = function(v)
+        local map = {
+            Gotham          = Font.fromEnum(Enum.Font.GothamBold),
+            ["Source Sans"] = Font.fromEnum(Enum.Font.SourceSansBold),
+            Arial           = Font.fromEnum(Enum.Font.ArialBold),
+            ["Fredoka One"] = Font.fromEnum(Enum.Font.FredokaOne),
+            Ubuntu          = Font.fromEnum(Enum.Font.Ubuntu),
+        }
+        local fnt = map[v]
+        if not fnt then return end
+        Library.UIFont = fnt
+        for _, inst in ipairs(Main:GetDescendants()) do
+            if inst:IsA("TextLabel") or inst:IsA("TextButton") or inst:IsA("TextBox") then
+                pcall(function() inst.FontFace = fnt end)
+            end
+        end
+    end,
+})
+
+SecMenu:Slider({
+    Name     = "Corner Radius",
+    Side     = "Left",
+    Flag     = "corner_radius",
+    min      = 0,
+    max      = 12,
+    default  = 2,
+    callback = function(v)
+        for _, c in ipairs(Main:GetDescendants()) do
+            if c:IsA("UICorner") then pcall(function() c.CornerRadius = UDim.new(0,v) end) end
+        end
+    end,
+})
+
+SecMenu:Slider({
+    Name     = "Transparency",
+    Side     = "Left",
+    Flag     = "menu_transparency",
+    min      = 0,
+    max      = 50,
+    default  = 0,
+    suffix   = "%",
+    callback = function(v)
+        local t = v / 100
+        TweenTo(Main, { BackgroundTransparency = t }, 0.15):Play()
+        local inl = Main:FindFirstChild("Inline")
+        if inl then TweenTo(inl, { BackgroundTransparency = t }, 0.15):Play() end
+    end,
+})
+
+SecMenu:Slider({
+    Name     = "Border Thickness",
+    Side     = "Left",
+    Flag     = "border_thickness",
+    min      = 0,
+    max      = 3,
+    default  = 1,
+    callback = function(v)
+        for _, s in ipairs(Main:GetDescendants()) do
+            if s:IsA("UIStroke") then pcall(function() s.Thickness = v end) end
+        end
+    end,
+})
+
+SecMenu:Toggle({
+    Name     = "Watermark",
+    Side     = "Right",
+    Flag     = "watermark",
+    default  = true,
+    callback = function(s)
+        TweenTo(WMWrap,  { BackgroundTransparency = s and 0 or 1 }, 0.2):Play()
+        TweenTo(WMInner, { BackgroundTransparency = s and 0 or 1 }, 0.2):Play()
+    end,
+})
+
+SecMenu:Toggle({
+    Name    = "Notifications",
+    Side    = "Right",
+    Flag    = "notifs_enabled",
+    default = true,
+})
+
+SecMenu:Toggle({
+    Name     = "Snow Effect",
+    Side     = "Right",
+    Flag     = "snow_effect",
+    default  = true,
+    callback = function(s)
+        snowEnabled = s
+        if BlurGui.Enabled then SnowCanvas.Visible = s end
+    end,
+})
+
+SecMenu:Toggle({
+    Name     = "Blur Background",
+    Side     = "Right",
+    Flag     = "blur_bg",
+    default  = true,
+    callback = function(s)
+        if blurActive then
+            TweenTo(DimOverlay, { BackgroundTransparency = s and 0.5 or 1 }, 0.3):Play()
+            TweenTo(BlurEffect, { Size = s and 18 or 0 }, 0.3):Play()
+            BlurEffect.Enabled = s
+        end
+    end,
+})
+
+SecMenu:Toggle({
+    Name     = "Rainbow Accent",
+    Side     = "Right",
+    Flag     = "rainbow_accent",
+    default  = false,
+    callback = function(s)
+        if s then
+            task.spawn(function()
+                while Library.Flags and Library.Flags["rainbow_accent"] do
+                    ApplyAccent(Color3.fromHSV(tick() % 5 / 5, 0.9, 1), false)
+                    task.wait(0.05)
+                end
+            end)
+        end
+    end,
+})
+
+SecMenu:Toggle({
+    Name     = "Typewriter Title",
+    Side     = "Right",
+    Flag     = "typewriter",
+    default  = false,
+    callback = function(s)
+        if s then
+            local lbl = Win.Elements and Win.Elements.Title
+            if lbl then
+                task.spawn(function()
+                    local txt = "lala.wtf"
+                    while Library.Flags and Library.Flags["typewriter"] do
+                        for i = 1, #txt do lbl.Text = txt:sub(1,i) task.wait(0.09) end
+                        task.wait(0.6)
+                        for i = #txt, 0, -1 do lbl.Text = txt:sub(1,i) task.wait(0.05) end
+                        task.wait(0.15)
+                    end
+                    lbl.Text = txt
+                end)
+            end
+        end
+    end,
+})
+
+SecMenu:Toggle({
+    Name     = "Sidebar Buttons",
+    Side     = "Right",
+    Flag     = "sidebar_btns",
+    default  = true,
+    callback = function(s)
+        toggleWrap.Visible = s
+        lockWrap.Visible   = s
+    end,
+})
+
+if not IsMobile then
+    SecMenu:Keybind({
+        Name     = "Menu Key",
+        Side     = "Right",
+        Flag     = "menu_key",
+        mode     = "Toggle",
+        default  = IsGamepad and Enum.KeyCode.ButtonSelect or Enum.KeyCode.RightShift,
+        callback = function()
+            if not UILocked then
+                MenuOpen = not MenuOpen
+                _origSetOpen(Library, MenuOpen)
+                SetBlur(MenuOpen)
+            end
+        end,
+    })
+end
+
+SecMenu:Button({
+    Name     = "Reset to Defaults",
+    Side     = "Right",
+    callback = function()
+        Library:LoadConfig("{}")
+        Notify({ Title = "Reset", Message = "All settings reset", Duration = 2 })
+    end,
+})
+
+WrapSectionScroll(SecMenu)
+
+-- ── Configs ───────────────────────────────────────────────────────────────────
+
+local CFG_FOLDER = "lala-wtf-cfgs"
+if not isfolder(CFG_FOLDER) then makefolder(CFG_FOLDER) end
+local configList = nil
+
+local function RefreshConfigList()
+    local names = {}
+    for _, f in ipairs(listfiles(CFG_FOLDER)) do
+        local n = f:match("([^/\\]+)%.txt$")
+        if n and n ~= "autoload" then table.insert(names, n) end
+    end
+    if configList then configList:Refresh(names) end
+end
+
+local SecConfig = PgSettings:Section({
+    Name       = "Configs",
+    LeftTitle  = "files",
+    RightTitle = "actions",
+})
+
+configList = SecConfig:List({
+    Name    = "Config List",
+    Side    = "Left",
+    Flag    = "config_list",
+    options = {},
+    default = nil,
+})
+
+SecConfig:Textbox({
+    Name        = "Config Name",
+    Side        = "Left",
+    Flag        = "config_name",
+    placeholder = "enter name...",
+    default     = "",
+})
+
+SecConfig:Button({
+    Name     = "Save Config",
+    Side     = "Right",
+    callback = function()
+        local n = Library.Flags["config_name"]
+        if n and n ~= "" then
+            writefile(CFG_FOLDER.."/"..n..".txt", Library:GetConfig())
+            RefreshConfigList()
+            Notify({ Title = "Saved", Message = n, Duration = 3 })
+        else
+            Notify({ Title = "Error", Message = "Enter a name", Duration = 2 })
+        end
+    end,
+})
+
+SecConfig:Button({
+    Name     = "Load Config",
+    Side     = "Right",
+    callback = function()
+        local s = Library.Flags["config_list"]
+        if s then
+            local ok, d = pcall(readfile, CFG_FOLDER.."/"..s..".txt")
+            if ok and d then Library:LoadConfig(d) Notify({ Title = "Loaded", Message = s, Duration = 3 }) end
+        else
+            Notify({ Title = "Error", Message = "Select a config", Duration = 2 })
+        end
+    end,
+})
+
+SecConfig:Button({
+    Name     = "Overwrite Config",
+    Side     = "Right",
+    callback = function()
+        local s = Library.Flags["config_list"]
+        if s then writefile(CFG_FOLDER.."/"..s..".txt", Library:GetConfig()) Notify({ Title = "Updated", Message = s, Duration = 3 }) end
+    end,
+})
+
+SecConfig:Button({
+    Name     = "Delete Config",
+    Side     = "Right",
+    callback = function()
+        local s = Library.Flags["config_list"]
+        if s then
+            pcall(delfile, CFG_FOLDER.."/"..s..".txt")
+            RefreshConfigList()
+            Notify({ Title = "Deleted", Message = s, Duration = 3 })
+        end
+    end,
+})
+
+SecConfig:Button({
+    Name     = "Set Autoload",
+    Side     = "Right",
+    callback = function()
+        local s = Library.Flags["config_list"]
+        if s then writefile(CFG_FOLDER.."/autoload.txt", s) Notify({ Title = "Autoload Set", Message = s, Duration = 3 }) end
+    end,
+})
+
+SecConfig:Button({
+    Name     = "Clear Autoload",
+    Side     = "Right",
+    callback = function()
+        pcall(delfile, CFG_FOLDER.."/autoload.txt")
+        Notify({ Title = "Cleared", Message = "Autoload removed", Duration = 3 })
+    end,
+})
+
+SecConfig:Button({
+    Name     = "Delete All",
+    Side     = "Right",
+    callback = function()
+        for _, f in ipairs(listfiles(CFG_FOLDER)) do pcall(delfile, f) end
+        RefreshConfigList()
+        Notify({ Title = "Wiped", Message = "All configs deleted", Duration = 3 })
+    end,
+})
+
+SecConfig:Button({
+    Name     = "Export Config",
+    Side     = "Right",
+    callback = function()
+        setclipboard(Library:GetConfig())
+        Notify({ Title = "Copied", Message = "Config in clipboard", Duration = 2 })
+    end,
+})
+
+SecConfig:Button({
+    Name     = "Import Config",
+    Side     = "Right",
+    callback = function()
+        local c = getclipboard()
+        if c and c ~= "" then Library:LoadConfig(c) Notify({ Title = "Imported", Message = "Loaded from clipboard", Duration = 3 }) end
+    end,
+})
+
+WrapSectionScroll(SecConfig)
+
+-- ═════════════════════════════════════════════════════════════════════════════
+--  Startup
+-- ═════════════════════════════════════════════════════════════════════════════
+
+local autoFile = CFG_FOLDER.."/autoload.txt"
+if isfile(autoFile) then
+    local an = readfile(autoFile)
+    if an and an ~= "" then
+        local ok, d = pcall(readfile, CFG_FOLDER.."/"..an..".txt")
+        if ok and d then Library:LoadConfig(d) end
+    end
+end
+
+RefreshConfigList()
+WMWrap.Visible = true
+ApplyAccent(ThemeMap["Void"], false)
+
+task.delay(0.6, function()
+    local function fire()
+        task.delay(0.3, function()
+            Notify({
+                Title    = "lala.wtf",
+                Message  = "loaded on "..(IsMobile and "mobile" or IsGamepad and "gamepad" or "pc"),
+                Duration = 4,
+            })
+        end)
+    end
+    if not Main.Visible then
+        local conn
+        conn = Main:GetPropertyChangedSignal("Visible"):Connect(function()
+            if Main.Visible then conn:Disconnect() fire() end
+        end)
+    else
+        fire()
+    end
+end)
