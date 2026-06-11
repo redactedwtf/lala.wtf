@@ -1,10 +1,6 @@
-local got, games = pcall(function()
-    return loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_USERNAME/REPO/main/list.lua"))()
-end)
+local games = loadstring(game:HttpGet("https://raw.githubusercontent.com/redactedwtf/lala.wtf/refs/heads/main/list.lua"))()
+local url   = games[game.PlaceId]
 
-if got then
-    local url = games[game.PlaceId]
-    if url then
-        loadstring(game:HttpGet(url))()
-    end
+if url then 
+    loadstring(game:HttpGet(url))() 
 end
