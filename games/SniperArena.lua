@@ -1,1 +1,1 @@
-lol
+print("Sniper Arena | Game Detected")
