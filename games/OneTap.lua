@@ -1,1 +1,3 @@
-print("[FPS] One Tap | Game Detected")
+local id = game.PlaceId
+setclipboard(id)
+print(id)
