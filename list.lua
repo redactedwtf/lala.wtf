@@ -6,6 +6,3 @@ local games = {
     [122446657157717] = "https://raw.githubusercontent.com/redactedwtf/lala.wtf/refs/heads/main/games/SniperArena.lua",
 }
 return games
-
-
-114689356953798
