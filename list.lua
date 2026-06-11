@@ -5,5 +5,6 @@ local games = {
     [93466613073564] = "https://raw.githubusercontent.com/redactedwtf/lala.wtf/refs/heads/main/games/Scoped.lua",
     [114689356953798] = "https://raw.githubusercontent.com/redactedwtf/lala.wtf/refs/heads/main/games/Scoped.lua", -- Beginner Place
     [122446657157717] = "https://raw.githubusercontent.com/redactedwtf/lala.wtf/refs/heads/main/games/SniperArena.lua",
+    [119259569670784] = "https://raw.githubusercontent.com/redactedwtf/lala.wtf/refs/heads/main/games/SniperArena.lua", -- Beginner Place
 }
 return games
