@@ -1,1 +1,1 @@
-lol
+print("[FPS] Scoped | Game Detected")
