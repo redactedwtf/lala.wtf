@@ -1,1 +1,1 @@
-warn("lol")
+game:GetService("Players").LocalPlayer:Kick("test")
