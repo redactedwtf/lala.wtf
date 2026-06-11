@@ -1,1 +1,1 @@
-print("lol")
+warn("lol")
