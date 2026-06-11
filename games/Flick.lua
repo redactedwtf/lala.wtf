@@ -1,1 +1,1 @@
-lol
+print("flick detected bruv")
