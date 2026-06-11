@@ -1,1 +1,1 @@
-print("flick detected bruv")
+print("[FPS] Flick | Game Detected")
